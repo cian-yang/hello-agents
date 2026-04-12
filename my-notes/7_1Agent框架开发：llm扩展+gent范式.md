@@ -94,11 +94,11 @@ class MyLLM(HelloAgentsLLM):
         if provider == "modelscope":
             print("正在使用自定义的 ModelScope Provider")
             self.provider = "modelscope"
-        
+      
             # 解析 ModelScope 的凭证
             self.api_key = api_key or os.getenv("MODELSCOPE_API_KEY")
             self.base_url = base_url or "https://api-inference.modelscope.cn/v1/"
-        
+      
             # 验证凭证是否存在
             if not self.api_key:
                 raise ValueError("ModelScope API key not found. Please set MODELSCOPE_API_KEY environment variable.")
@@ -108,7 +108,7 @@ class MyLLM(HelloAgentsLLM):
             self.temperature = kwargs.get('temperature', 0.7)
             self.max_tokens = kwargs.get('max_tokens')
             self.timeout = kwargs.get('timeout', 60)
-        
+      
             # 使用获取的参数创建OpenAI客户端实例
             self._client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=self.timeout)
 
@@ -118,7 +118,6 @@ class MyLLM(HelloAgentsLLM):
 
 
 ```
-
 
 ### 3、使用自定义的 `MyLLM` 类
 
@@ -162,11 +161,11 @@ for chunk in response_stream:
 
 本地模型安装，使用VLLM、Ollama等（查看另外一个文章查看详细）
 
-## 自动检测机制 
+## 自动检测机制
 
 为了尽可能减少用户的配置负担并遵循“约定优于配置”的原则
 
-`elloAgentsLLM` 内部设计了两个核心辅助方法：`_auto_detect_provider` 和 `_resolve_credentials`。
+`helloAgentsLLM` 内部设计了两个核心辅助方法：`_auto_detect_provider` 和 `_resolve_credentials`。
 
 - `_auto_detect_provider` 负责**根据环境信息推断服务商**，
 - 而 `_resolve_credentials` 则**根据推断结果完成具体的参数配置**
@@ -384,7 +383,6 @@ class Config(BaseModel):
         return self.dict()
 
 ```
-
 
 ## Agent 抽象基类
 
@@ -1018,13 +1016,140 @@ DEFAULT_PROMPTS = {
 
 ```
 
-
-
 ### 重写MyReflectionAgent
 
 可以尝试根据之前的代码，以及上文ReAct的实现，构建出自己的MyReflectionAgent
 
 ```python
+from hello_agents import ReflectionAgent, HelloAgentsLLM, Config, Message
+
+from typing import List, Dict, Any, Optional
+
+
+class Memory:
+    """
+    一个简单的短期记忆模块，用于存储智能体的行动与反思轨迹。
+    """
+
+    def __init__(self):
+        """
+        初始化一个空列表来存储所有记录。
+        """
+        self.records: List[Dict[str, Any]] = []
+
+    def add_record(self, record_type: str, content: str):
+        """
+        向记忆中添加一条新记录。
+
+        参数:
+        - record_type (str): 记录的类型 ('execution' 或 'reflection')。
+        - content (str): 记录的具体内容 (例如，生成的代码或反思的反馈)。
+        """
+        record = {"type": record_type, "content": content}
+        self.records.append(record)
+        print(f"📝 记忆已更新，新增一条 '{record_type}' 记录。")
+
+    def get_trajectory(self) -> str:
+        """
+        将所有记忆记录格式化为一个连贯的字符串文本，用于构建提示词。
+        """
+        trajectory_parts = []
+        for record in self.records:
+            if record['type'] == 'execution':
+                trajectory_parts.append(f"--- 上一轮尝试 (代码) ---\n{record['content']}")
+            elif record['type'] == 'reflection':
+                trajectory_parts.append(f"--- 评审员反馈 ---\n{record['content']}")
+
+        return "\n\n".join(trajectory_parts)
+
+    def get_last_execution(self) -> Optional[str]:
+        """
+        获取最近一次的执行结果 (例如，最新生成的代码)。
+        如果不存在，则返回 None。
+        """
+        for record in reversed(self.records):
+            if record['type'] == 'execution':
+                return record['content']
+        return None
+
+class MyReflectionAgent(ReflectionAgent):
+    """
+    重写的 reflection Agent - 执行 -> 反思 -> 优化 的智能体
+    """
+
+        def __init__(
+            self,
+            name: str,
+            llm: HelloAgentsLLM,
+            system_prompt: Optional[str] = None,
+            config: Optional[Config] = None,
+            max_iterations: int = 5,
+            custom_prompts: Optional[str] = None
+    ):
+        super().__init__(name, llm, system_prompt, config)
+        self.max_iterations = max_iterations
+        self.memory: Memory
+        self.prompt_template = custom_prompts if custom_prompts else DEFAULT_PROMPTS
+        print(f"✅ {name} 初始化完成，最大步数: {max_iterations}")
+
+    def run(self, input_text: str, **kwargs):
+        """
+        运行Reflection Agent
+
+        Args:
+            input_text: 任务描述
+            **kwargs: 其他参数
+
+        Returns:
+            最终优化后的结果
+        """
+
+        self.memory = Memory()
+        # --- 1. 初始执行 ---
+        # 1. 初始执行
+        print("\n--- 正在进行初始尝试 ---")
+        initial_prompt = self.prompts["initial"].format(task=input_text)
+        initial_result = self._get_llm_response(initial_prompt, **kwargs)
+        self.memory.add_record("execution", initial_result)
+
+        # --- 2. 迭代循环:反思与优化 ---
+        for i in range(self.max_iterations):
+            print(f"\n--- 第 {i+1}/{self.max_iterations} 轮迭代 ---")
+
+            # a. 反思
+            print("\n-> 正在进行反思...")
+            last_code = self.memory.get_last_execution()
+            reflect_prompt = self.prompts["reflect"].format(task=input_text, code=last_code)
+            feedback = self._get_llm_response(reflect_prompt)
+            self.memory.add_record("reflection", feedback)
+
+            # b. 检查是否需要停止
+            if "无需改进" in feedback:
+                print("\n✅ 反思认为代码已无需改进，任务完成。")
+                break
+
+            # c. 优化
+            print("\n-> 正在进行优化...")
+            refine_prompt = self.prompts["refine"].format(
+                task=input_text,
+                last_code_attempt=last_code,
+                feedback=feedback
+            )
+            refined_code = self._get_llm_response(refine_prompt, **kwargs)
+            self.memory.add_record("execution", refined_code)
+
+        final_code = self.memory.get_last_execution()
+        print(f"\n--- 任务完成 ---\n最终生成的代码:\n```python\n{final_code}\n```")
+
+        # 保存到历史记录
+        self.add_message(Message(input_text, "user"))
+        self.add_message(Message(final_code, "assistant"))
+        return final_code
+
+    def _get_llm_response(self, prompt: str, **kwargs) -> str:
+        """调用LLM并获取完整响应"""
+        messages = [{"role": "user", "content": prompt}]
+        return self.llm.invoke(messages, **kwargs) or ""
 
 ```
 
@@ -1033,10 +1158,10 @@ DEFAULT_PROMPTS = {
 测试代码如下
 
 ```python
-# test_reflection_agent.py
 from dotenv import load_dotenv
 from hello_agents import HelloAgentsLLM
-from my_reflection_agent import MyReflectionAgent
+
+from agent_form.MyReflectionAgent import MyReflectionAgent
 
 load_dotenv()
 llm = HelloAgentsLLM()
@@ -1044,12 +1169,24 @@ llm = HelloAgentsLLM()
 # 使用默认通用提示词
 general_agent = MyReflectionAgent(name="我的反思助手", llm=llm)
 
-# 使用自定义代码生成提示词（类似第四章）
-code_prompts = {
-    "initial": "你是Python专家，请编写函数:{task}",
-    "reflect": "请审查代码的算法效率:\n任务:{task}\n代码:{content}",
-    "refine": "请根据反馈优化代码:\n任务:{task}\n反馈:{feedback}"
-}
+# 使用自定义代码生成提示词
+
+code_prompts = """
+你是一位资深的Python程序员。你正在根据一位代码评审专家的反馈来优化你的代码。
+
+# 原始任务:
+{task}
+
+# 你上一轮尝试的代码:
+{last_code_attempt}
+评审员的反馈：
+{feedback}
+
+请根据评审员的反馈，生成一个优化后的新版本代码。
+你的代码必须包含完整的函数签名、文档字符串，并遵循PEP 8编码规范。
+请直接输出优化后的代码，不要包含任何额外的解释。
+"""
+
 code_agent = MyReflectionAgent(
     name="我的代码生成助手",
     llm=llm,
@@ -1109,7 +1246,6 @@ DEFAULT_EXECUTOR_PROMPT = """
 
 ### 重写PlanAndSolveAgent
 
-
 ### 测试代码
 
 ```python
@@ -1141,10 +1277,7 @@ print(f"对话历史: {len(agent.get_history())} 条消息")
 
 ```
 
-
 ### 其他提示词
-
-
 
 补充一款新的提示词，可以尝试实现 `custom_prompt`载入自定义提示词。
 
@@ -1188,7 +1321,6 @@ print(f"数学专用Agent结果: {math_result}")
 ## FunctionCallAgent
 
 基于OpenAI原生函数调用机制的Agent，展示了如何使用OpenAI的函数调用机制来构建Agent
-
 
 支持以下功能：
 
