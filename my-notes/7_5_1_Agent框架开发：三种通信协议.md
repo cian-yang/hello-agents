@@ -12,6 +12,13 @@
 
 目标是能拥有在自己项目中应用协议的能力。
 
+
+深入学习：
+
+- 阅读 MCP 官方文档：https://modelcontextprotocol.io
+- 阅读 A2A 官方文档：https://a2a-protocol.org/latest/
+- 阅读 ANP 官方文档：https://agent-network-protocol.com/guide/
+
 # 为何需要通信协议
 
 **工具集成的困境**：每当需要**访问新的外部服务**（如 GitHub API、数据库、文件系统），我们都**必须编写专门的 Tool 类**。这不仅工作量大，而且不同开发者编写的工具无法互相兼容。
