@@ -172,3 +172,72 @@ $$
 $$
 r(q, a) = f(a, a^*)
 $$
+
+## 奖励函数
+
+HelloAgents 提供了三种内置奖励函数，可以单独使用或组合使用
+
+![1776348836860](image/1776348836860.png)
+
+### 准确率奖励
+
+准确率奖励(AccuracyReward)是最基础的奖励函数，它只关心答案是否正确。
+
+数学定义为：这是一个二值奖励函数，答案正确得 1 分，错误得 0 分。
+
+- 其中 $a$ 是模型生成的答案，
+- $a^*$ 是正确答案。
+
+$$
+r_{\text{acc}}(a, a^*) = \begin{cases}
+1 & \text{if } a = a^* \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+
+实现时需要处理答案提取和比较。
+
+模型的输出可能包含大量文本，我们需要提取最终答案。
+
+常见的提取方法包括:
+
+- 查找"Final Answer:"后的数字、
+- 查找"####"标记后的数字、
+- 使用正则表达式提取最后一个数字。
+
+
+- 答案比较时需要处理数值精度(如 72.0 和 72 应该视为相同)、
+- 单位转换(如 1000 和 1k)、
+- 格式差异(如"72"和"seventy-two")。
+
+使用示例:
+
+```python
+from hello_agents.tools import RLTrainingTool
+import json
+rl_tool = RLTrainingTool()
+
+# 创建准确率奖励函数
+reward_result = rl_tool.run({
+    "action": "create_reward",
+    "reward_type": "accuracy"
+})
+reward_data = json.loads(reward_result)
+
+print(f"奖励类型: {reward_data['reward_type']}")
+print(f"描述: {reward_data['description']}")
+
+# 注意: RLTrainingTool的create_reward操作返回的是配置信息,
+# 实际的奖励函数会在训练时自动创建和使用
+```
+
+输出:
+
+```json
+预测: 72, 真实: 72, 奖励: 1.0
+预测: 72.0, 真实: 72, 奖励: 1.0
+预测: 73, 真实: 72, 奖励: 0.0
+```
+
+准确率奖励的优点是简单直接，容易理解和实现，适合有明确正确答案的任务。缺点是奖励稀疏，只有答案完全正确才有奖励，无法区分"接近正确"和"完全错误"，可能导致训练初期缺乏有效反馈。
