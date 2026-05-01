@@ -397,9 +397,9 @@ print(response)
 
 让我们构建一个完整的智能客服系统，包含三个 Agent：
 
-- `<strong>`接待员 `</strong>`：分析客户问题类型
-- `<strong>`技术专家 `</strong>`：回答技术问题
-- `<strong>`销售顾问 `</strong>`：回答销售问题
+- **接待员** ：分析客户问题类型
+- **技术专家** ：回答技术问题
+- 销**售顾问** ：回答销售问题
 
 ```python
 from hello_agents import SimpleAgent, HelloAgentsLLM
