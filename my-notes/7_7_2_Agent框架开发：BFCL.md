@@ -15,11 +15,10 @@ BFCL：工具调用能力评估
 
 BFCL 基准包含四个评估类别
 
-- 从最基础的**单函数调用（Simple）**开始，
+- 从最基础的 **单函数调用（Simple）** 开始，
 - 逐步增加到需要**调用多个函数的场景（Multiple）**，
 - 再到需要**并行调用多个函数的复杂场景（Parallel）**，
 - 最后是需要**判断是否需要调用函数的场景（Irrelevance）**。
-
 
 | 类别        | 描述                     | 示例                                                   |
 | ----------- | ------------------------ | ------------------------------------------------------ |
@@ -82,12 +81,11 @@ BFCL 数据集采用 JSON 格式，每个测试样本包含以下字段：关键
 
 # AST 匹配说明
 
-BFCL 使用 **AST 匹配（Abstract Syntax Tree Matching）**作为核心评估算法
+BFCL 使用 **AST 匹配（Abstract Syntax Tree Matching）** 作为核心评估算法
 
 BFCL 使用抽象语法树（AST）进行**智能匹配，而不是简单的字符串匹配**。
 
 AST 匹配的**核心思想是：将函数调用解析为语法树，然后比较树的结构和节点值**
-
 
 给定预测的函数调用 $P$ 和标准答案 $G$，AST 匹配函数定义为：
 
@@ -107,7 +105,6 @@ $$
 - **参数键值对集合相等（忽略顺序）**，
 - 以及**每个参数的值在语义上等价（例如 `2+3` 等价于 `5`）**。
 
-
 在**具体的匹配过程中**，
 
 - **函数名匹配要求字符串精确匹配**，例如 `get_weather` 和 `get_temperature` 被视为不同的函数。
@@ -119,7 +116,6 @@ $$
   - **数量必须一样** —— 标准答案调用了 3 个函数，你也必须调用 3 个函数
   - **每个函数调用都要对得上** —— 函数名、参数都得匹配
   - **顺序无所谓** —— 你先调用哪个、后调用哪个，不影响判断结果
-
 
 AST 匹配示例
 
@@ -172,8 +168,6 @@ $$
 \text{AST Match Rate} = \text{Accuracy}
 $$
 
-
-
 ## 分类准确率 (Category-wise Accuracy)
 
 对于每个类别 $c \in \{\text{simple}, \text{multiple}, \text{parallel}, \ldots\}$，计算该类别的准确率：
@@ -183,7 +177,6 @@ $$
 $$
 
 其中 $D_c$ 是类别 $c$ 的样本集合，$|D_c|$ 是该类别的样本数。
-
 
 分类准确率示例：
 
@@ -196,7 +189,6 @@ parallel_accuracy = 0.68    # Parallel类别：68%正确
 # 加权准确率（假设权重相等）
 weighted_accuracy = (0.95 + 0.82 + 0.68) / 3 = 0.817
 ```
-
 
 ## 加权准确率 (Weighted Accuracy)
 
@@ -264,10 +256,9 @@ ls bfcl_eval/data/possible_answer/
 # 输出: BFCL_v4_simple_python.json  BFCL_v4_multiple.json  ...
 ```
 
-
 ## HelloAgents 加载
 
-方法 2：使用 HelloAgents 加载官方数据 
+方法 2：使用 HelloAgents 加载官方数据
 
 这个加载器的工作原理是：
 
@@ -331,7 +322,6 @@ print(f"支持的类别: {categories}")
 - 如果需要深度定制评估流程或集成到自己的系统中，直接使用 Dataset 和 Evaluator 提供了最大的灵活性。
 
 ## BFCLEvaluationTool（推荐）
-
 
 方式 1：使用 BFCLEvaluationTool（推荐）
 
@@ -448,7 +438,6 @@ evaluator.export_to_bfcl_format(
 - 随后**运行 BFCL 官方评估命令**计算分数，
 - 最后显示官方评估结果并生成 Markdown 格式的评估报告。
 
-
 如果你想手动控制评估流程，可以禁用自动官方评估：
 
 ```python
@@ -490,7 +479,6 @@ print(report)
 
 ## （1）BFCLDataset：数据集加载器
 
-
 BFCLDataset 负责加载和管理 BFCL 数据集：
 
 ````python
@@ -515,7 +503,6 @@ class BFCLDataset:
 
 ## （2）BFCLEvaluator：评估执行器
 
-
 BFCLEvaluator 负责执行评估流程。
 
 这个评估器的设计包含三个核心要点：
@@ -525,7 +512,6 @@ BFCLEvaluator 负责执行评估流程。
 - 最后是 **AST 匹配**，使用抽象语法树进行函数调用对比，这比简单的字符串匹配更准确。
 
 它的核心是 `evaluate()`方法，该方法协调整个评估过程：
-
 
 ````python
 class BFCLEvaluator:
@@ -557,7 +543,6 @@ class BFCLEvaluator:
 
         return {"results": results, "total_samples": len(results)}
 ````
-
 
 让我们看看函数调用提取的实现：
 
@@ -596,7 +581,6 @@ def _extract_function_calls(self, response: str) -> List[Dict[str, Any]]:
 
 ## （3）BFCLMetrics：指标计算器
 
-
 BFCLMetrics 负责计算各种评估指标：
 
 ````python
@@ -614,9 +598,7 @@ class BFCLMetrics:
         }
 ````
 
-
 ## AST 匹配的实现
-
 
 AST 匹配是 BFCL 评估的核心技术。它比简单的字符串匹配更智能，能够识别语义等价的函数调用：
 
@@ -655,7 +637,6 @@ def _args_to_ast(self, args: Dict[str, Any]) -> ast.AST:
 - 首先继承 Tool 基类以遵循 HelloAgents 的工具规范，确保与框架的无缝集成；
 - 其次进行严格的参数验证，检查必需参数并提供友好的错误提示，提升用户体验；
 - 最后对结果进行格式化，返回 JSON 字符串以便于解析和展示。
-
 
 将这些组件封装成一个 Tool，让它可以被智能体直接调用：
 
@@ -720,7 +701,6 @@ class BFCLEvaluationTool(Tool):
 
 ## 1、渐进式评估
 
-
 从小样本开始，逐步增加样本数：
 
 ```python
@@ -736,7 +716,6 @@ if results_medium['overall_accuracy'] > 0.8:
     results_full = bfcl_tool.run(agent, category="simple_python", max_samples=0)
 ```
 
-
 ## 2、多类别评估
 
 评估不同难度的任务：
@@ -751,7 +730,6 @@ for category in categories:
 ```
 
 ## 3、对比评估
-
 
 对比不同配置的智能体：
 
@@ -770,9 +748,7 @@ print(f"默认配置准确率: {results1['overall_accuracy']:.2%}")
 print(f"优化配置准确率: {results2['overall_accuracy']:.2%}")
 ```
 
-
 ## 提交到 BFCL 官方排行榜
-
 
 步骤 1：准备提交材料
 
